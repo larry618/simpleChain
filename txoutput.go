@@ -13,7 +13,8 @@ type TXOutput struct {
 
 func NewTxOutput(amount int, addr string) TXOutput {
 	output := TXOutput{amount, nil}
-	output.Lock([]byte(addr))
+
+	output.Lock(addr)
 	return output
 }
 
@@ -22,11 +23,9 @@ func (out *TXOutput) IsLockedWith(PubKeyHash []byte) bool {
 	return bytes.Compare(out.PubKeyHash, PubKeyHash) == 0
 }
 
-func (out *TXOutput) Lock(addr []byte) {
-	fullPayload := Base58Decode(addr)
-
-	pubkeyHash := fullPayload[1:len(fullPayload)-addressChecksumLen]
-	out.PubKeyHash = pubkeyHash
+func (out *TXOutput) Lock(addr string) {
+	pubKeyHash := GetPubKeyHashFromAddr(addr)
+	out.PubKeyHash = pubKeyHash
 }
 
 func (out *TXOutput) Serialize() []byte {

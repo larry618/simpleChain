@@ -28,6 +28,11 @@ func NewIntSet() IntSet {
 }
 
 func (set IntSet) add(s int) {
+
+	if set == nil {  // 这种骚操作都可以 ???
+		set = NewIntSet()
+	}
+
 	set[s] = true
 }
 

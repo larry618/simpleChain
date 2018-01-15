@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"math/big"
 	"crypto/elliptic"
+	"time"
 )
 
 const subsidy = 10 // 是挖出新块的奖励金
@@ -20,6 +21,7 @@ type Transaction struct {
 	ID   []byte
 	Vin  []TXInput
 	Vout []TXOutput
+	timesStamp int64
 }
 
 
@@ -28,14 +30,9 @@ func NewCoinBaseTX(to, data string) *Transaction {
 	if data == "" {
 		data = fmt.Sprintf("Reword to '%s'", to)
 	}
-
-
-
 	txInput := TXInput{[]byte{}, -1, nil, nil}
-	pubKeyHash := GetPubKeyHashFromAddr(to)
-	txOutput := TXOutput{subsidy, pubKeyHash}
-
-	tx := Transaction{nil, []TXInput{txInput}, []TXOutput{txOutput}}
+	txOutput := NewTxOutput(subsidy, to)
+	tx := Transaction{nil, []TXInput{txInput}, []TXOutput{txOutput}, time.Now().UnixNano()}
 	tx.Hash()
 	return &tx
 }
@@ -123,7 +120,7 @@ func (tx *Transaction) TrimmedCopy() *Transaction {
 		outputs = append(outputs, TXOutput{out.Value, out.PubKeyHash})
 	}
 
-	return &Transaction{nil, inputs, outputs}
+	return &Transaction{nil, inputs, outputs, tx.timesStamp}
 }
 
 func (tx *Transaction) Hash() {
@@ -135,7 +132,14 @@ func (tx *Transaction) Hash() {
 
 	encoder.Encode(tx)
 
-	hash = sha256.Sum256(buffer.Bytes())
+	b := buffer.Bytes()
+
+	// 把时间添加进去防止 产生的hash相同
+	b = append(b, byte(tx.timesStamp))
+
+	hash = sha256.Sum256(b)
+
+
 	tx.ID = hash[:]
 }
 

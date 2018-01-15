@@ -40,7 +40,7 @@ func Base58Decode(input []byte) []byte {
 	zeroBytes := 0
 
 	for _, b := range input {
-		if b == 0x00 {
+		if b == 0x00 {    // Base58 decode时会把前面的 0 去掉, 所以版本号不能为0
 			zeroBytes++
 		}
 	}
