@@ -2,8 +2,12 @@
   <dictionary name="yangkeyao">
     <words>
       <w>asdf</w>
+      <w>dest</w>
+      <w>heheda</w>
+      <w>merkle</w>
       <w>utxo</w>
       <w>utxos</w>
+      <w>vout</w>
     </words>
   </dictionary>
 </component>

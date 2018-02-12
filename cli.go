@@ -14,7 +14,6 @@ type CLI struct {
 func addAddrCmdFlag(cmd *flag.FlagSet) *string {
 	addrData := cmd.String("addr", "", "")
 	return addrData
-
 }
 
 func (cli *CLI) run() {
@@ -24,9 +23,9 @@ func (cli *CLI) run() {
 	getBalanceCmd := flag.NewFlagSet("getBalance", flag.ExitOnError)             // 查看余额
 	mineCmd := flag.NewFlagSet("mine", flag.ExitOnError)                         // 挖矿
 	createWalletCmd := flag.NewFlagSet("createWallet", flag.ExitOnError)         // 创建钱包
-	sendCmd := flag.NewFlagSet("send", flag.ExitOnError)                         // 转账
+	sendCmd := flag.NewFlagSet("sendNetworkPacket", flag.ExitOnError)                         // 转账
 
-	//addBlockData := addBlockCmd.String("data", "", "add the fucking data to a new block")
+	//addBlockData := addBlockCmd.String("Data", "", "add the fucking Data to a new block")
 	createBlockChainAddr := addAddrCmdFlag(createBlockChainCmd)
 	printChainAddr := addAddrCmdFlag(printChainCmd)
 	getBalanceAddr := addAddrCmdFlag(getBalanceCmd)
@@ -55,7 +54,7 @@ func (cli *CLI) run() {
 	case "createWallet":
 		createWalletCmd.Parse(os.Args[2:])
 
-	case "send":
+	case "sendNetworkPacket":
 		sendCmd.Parse(os.Args[2:])
 
 	default:

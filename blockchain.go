@@ -12,25 +12,92 @@ import (
 
 // 常量只能是字符串、布尔和数字三种类型。
 const (
-	dbFile          = "aaa"
+	originDbFile    = "blockchain_%s.db"
 	blocksBucketStr = "asdf"
 )
 
 var (
 	blocksBucket = []byte(blocksBucketStr)
 	tipKey       = []byte("l")
+	dbFile       string
 )
 
 type BlockChain struct {
 	//blocks []*Block
-	tip []byte   // 最后一个区块的 hash
-	db  *bolt.DB // 存储 区块的数据库
+	tip     []byte   // 最后一个区块的 hash
+	db      *bolt.DB // 存储 区块的数据库
 	utxoSet *UTXOSet
 }
 
-func (bc *BlockChain) AddBlock(txs []*Transaction) {
-	newBlock := NewBlock(txs, bc.tip)
+func (bc *BlockChain) GetBestHeight() int64 {
 
+	var height int64
+	bc.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(blocksBucket)
+		blockBytes := bucket.Get(bc.tip)
+
+		block := DeserializeBlock(blockBytes)
+
+		height = block.Height
+		return nil
+	})
+
+	return height
+}
+
+func (bc *BlockChain) GetLastBlock() *Block {
+	return bc.GetBlock(bc.tip)
+}
+
+func (bc *BlockChain) GetBlock(hash []byte) *Block {
+
+	var block *Block
+	bc.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(blocksBucket)
+
+		blockData := bucket.Get(hash)
+		block = DeserializeBlock(blockData)
+		return nil
+	})
+
+	return block
+}
+
+func (bc *BlockChain) GetBlocksHash(amount int64) [][]byte {
+
+	var hashes [][]byte
+	iterator := bc.Iterator()
+
+	for iterator.HasNext() && amount > 0 {
+		amount--
+		block := iterator.Next()
+		hashes = append(hashes, block.Hash)
+	}
+
+	return hashes
+
+}
+
+func (bc *BlockChain) MiningBlock(txs []*Transaction) {
+
+	var height int64
+	bc.db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(blocksBucket)
+
+		blockData := bucket.Get(bc.tip)
+
+		lastBlock := DeserializeBlock(blockData)
+
+		height = lastBlock.Height
+
+		return nil
+	})
+
+	newBlock := NewBlock(txs, bc.tip, height+1)
+	bc.AddBlock(newBlock)
+}
+
+func (bc *BlockChain) AddBlock(newBlock *Block) {
 	bc.db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket(blocksBucket)
 		err := bucket.Put(newBlock.Hash, newBlock.Serialize())
@@ -42,9 +109,10 @@ func (bc *BlockChain) AddBlock(txs []*Transaction) {
 }
 
 // address: 用于接受创世区块的奖励
-func NewBlockChain(address string) *BlockChain {
+func NewBlockChain(address, nodeId string) *BlockChain {
 
 	var tip []byte
+	dbFile = fmt.Sprintf(originDbFile, nodeId)
 	db, err := bolt.Open(dbFile, 0666, nil)
 	err = db.Update(func(tx *bolt.Tx) error {
 		bucket := tx.Bucket([]byte(blocksBucket))
@@ -61,7 +129,6 @@ func NewBlockChain(address string) *BlockChain {
 			err = bucket.Put(genesisBlock.Hash, genesisBlock.Serialize())
 			err = bucket.Put(tipKey, genesisBlock.Hash)
 			tip = genesisBlock.Hash
-
 
 		} else {
 			tip = bucket.Get(tipKey)
@@ -81,6 +148,24 @@ func NewBlockChain(address string) *BlockChain {
 	return bc
 }
 
+func LoadBlockChain(nodeId string) *BlockChain {
+	var tip []byte
+
+	dbFile = fmt.Sprintf(originDbFile, nodeId)
+	db, _ := bolt.Open(dbFile, 0666, nil)
+	db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(blocksBucket))
+		tip = bucket.Get(tipKey)
+		return nil
+	})
+
+	bc := &BlockChain{tip, db, nil}
+	bc.utxoSet = NewUTXOSet(bc)
+	bc.utxoSet.Reindex()
+
+	return bc
+}
+
 // 挖矿
 func (bc *BlockChain) Mining(txs []*Transaction, addr string) {
 
@@ -88,7 +173,7 @@ func (bc *BlockChain) Mining(txs []*Transaction, addr string) {
 	fmt.Printf("%s is mining...\n", addr)
 	txs = append(txs, tx)
 
-	fmt.Printf("当前区块的交易数量:%d\n",len(txs))
+	fmt.Printf("当前区块的交易数量:%d\n", len(txs))
 	for i, tx := range txs {
 		fmt.Println(i)
 		if bc.VerifyTx(tx) == false {
@@ -96,7 +181,7 @@ func (bc *BlockChain) Mining(txs []*Transaction, addr string) {
 		}
 	}
 
-	bc.AddBlock(txs)
+	bc.MiningBlock(txs)
 }
 
 func (bc *BlockChain) Iterator() *BlockChainIterator {
@@ -112,7 +197,7 @@ func (bc *BlockChain) FindUTXO(pubKeyHash []byte) []TXOutput {
 func (bc *BlockChain) FindAllUTXOs() map[string]TXOutputs {
 
 	spendTxOutputs := make(map[string]IntSet) // 已花费的output  key: 交易ID, value: 当前交易的所有花费了的output的 索引合集
-	 utxos := make(map[string]TXOutputs)                   // 未花费的output
+	utxos := make(map[string]TXOutputs)       // 未花费的output
 
 	it := bc.Iterator()
 
@@ -124,14 +209,19 @@ func (bc *BlockChain) FindAllUTXOs() map[string]TXOutputs {
 			// 统计当前交易中已花费的别的交易中的output
 			for _, in := range tx.Vin {
 				prevTxID := hex.EncodeToString(in.Txid)
-				spendTxOutputs[prevTxID].add(in.Vout)
+
+				if spendTxOutputs[prevTxID] == nil {
+					spendTxOutputs[prevTxID] = NewIntSet()
+				}
+
+				spendTxOutputs[prevTxID].Add(in.Vout)
 			}
 
 			// 统计当前交易中的所有未被花费的交易
 			curtTxID := hex.EncodeToString(tx.ID)
 			outs := NewTxOutputs()
 			for outIdx, out := range tx.Vout {
-				if spendTxOutputs[curtTxID].contains(outIdx) == false { // 当前output未被花费
+				if spendTxOutputs[curtTxID].Contains(outIdx) == false { // 当前output未被花费
 					outs[outIdx] = out
 				}
 			}
@@ -242,7 +332,6 @@ func (bc *BlockChain) VerifyTx(tx *Transaction) bool {
 	res := tx.Verify(prevTxs)
 	return res
 }
-
 
 //  返回  >= amount 数量的 UTXOs
 func (bc *BlockChain) FindSpendableOutputs(pubKeyHash []byte, amount int) (int, map[string][]int) {

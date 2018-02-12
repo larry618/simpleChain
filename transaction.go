@@ -18,13 +18,11 @@ const subsidy = 10 // 是挖出新块的奖励金
 
 // 一笔交易由一些输入（input）和输出（output）组合而来
 type Transaction struct {
-	ID   []byte
-	Vin  []TXInput
-	Vout []TXOutput
+	ID         []byte
+	Vin        []TXInput
+	Vout       []TXOutput
 	timesStamp int64
 }
-
-
 
 func NewCoinBaseTX(to, data string) *Transaction {
 	if data == "" {
@@ -139,10 +137,38 @@ func (tx *Transaction) Hash() {
 
 	hash = sha256.Sum256(b)
 
-
 	tx.ID = hash[:]
 }
 
 func (tx Transaction) IsCoinbase() bool {
 	return len(tx.Vin) == 1 && len(tx.Vin[0].Txid) == 0 && tx.Vin[0].Vout == -1
+}
+
+func (tx *Transaction) Serialize() []byte {
+
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+
+	err := encoder.Encode(tx)
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return buf.Bytes()
+}
+
+func DeserializeTransaction(b []byte) *Transaction {
+	var tx Transaction
+	reader := bytes.NewReader(b)
+
+	decoder := gob.NewDecoder(reader)
+	err := decoder.Decode(&tx)
+
+	if err != nil {
+	    log.Panic(err)
+	}
+
+	return &tx
+
 }

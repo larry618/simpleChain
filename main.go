@@ -6,9 +6,11 @@ import (
 )
 
 func main() {
-	cli := CLI{}
-	cli.run()
+	//cli := CLI{}
+	//cli.run()
 	//testPubKeyHash()
+
+	testPhi()
 }
 
 func test() {
@@ -30,4 +32,8 @@ func testPubKeyHash() {
 
 
 	fmt.Printf("pubKeyHashFromAddr    %x\n", pubKeyHashFromAddr)
+}
+
+func testPhi() {
+	fmt.Println(625 % 8)
 }

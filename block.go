@@ -16,10 +16,11 @@ type Block struct {
 	PrevBlockHash []byte
 	Hash          []byte
 	Nonce         int
+	Height        int64
 }
 
-func NewBlock(txs []*Transaction, prevBlockHash []byte) *Block {
-	block := &Block{time.Now().Unix(), txs, prevBlockHash, []byte{}, 0}
+func NewBlock(txs []*Transaction, prevBlockHash []byte, height int64) *Block {
+	block := &Block{time.Now().Unix(), txs, prevBlockHash, []byte{}, 0, height}
 
 	// block.setHash()
 
@@ -31,20 +32,29 @@ func NewBlock(txs []*Transaction, prevBlockHash []byte) *Block {
 }
 
 func newGenesisBlock(coinbase *Transaction) *Block {
-	return NewBlock([]*Transaction{coinbase}, []byte{})
+	return NewBlock([]*Transaction{coinbase}, []byte{}, 0)
 }
 
 // 每笔交易的TXID 进行哈希
 func (b *Block) TransactionsHash() []byte {
-	var txIds [][]byte
-	var txsHash [32]byte
+	//var txIds [][]byte
+	//var txsHash [32]byte
+	//
+	//for _, tx := range b.Transactions {
+	//	txIds = append(txIds, tx.ID)
+	//}
+	//
+	//txsHash = sha256.Sum256(bytes.Join(txIds, []byte{}))
+	//return txsHash[:]
+
+	var transactions [][]byte
 
 	for _, tx := range b.Transactions {
-		txIds = append(txIds, tx.ID)
+		transactions = append(transactions, tx.Serialize())
 	}
+	mTree := NewMerkleTree(transactions)
 
-	txsHash = sha256.Sum256(bytes.Join(txIds, []byte{}))
-	return txsHash[:]
+	return mTree.Root.Data
 }
 
 func (b *Block) String() string {
@@ -73,7 +83,7 @@ func (b *Block) Serialize() []byte {
 	return result.Bytes()
 }
 
-func Deserialize(b []byte) *Block {
+func DeserializeBlock(b []byte) *Block {
 
 	var block Block
 	reader := bytes.NewReader(b)

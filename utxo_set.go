@@ -48,7 +48,7 @@ func (set *UTXOSet) Reindex() {
 	})
 }
 
-// 每生成一个区块后 更行UTXO Set
+// 每生成一个区块后 更行UTXO StringSet
 func (set *UTXOSet) Update(b *Block) {
 
 	db := set.bc.db
@@ -109,6 +109,8 @@ func (set *UTXOSet) FindSpendableOutputs(pubKeyHash []byte, amount int) (int, ma
 		cursor := bucket.Cursor()
 		// Cursor represents an iterator that can traverse over all key/value pairs in a bucket in sorted order.
 
+
+		// 循环遍历了每一个 Output
 		for key, value := cursor.First(); key != nil && accumulate < amount; key, value = cursor.Next() {
 			txID := hex.EncodeToString(key)
 			outs := DeserializeOutputs(value)
