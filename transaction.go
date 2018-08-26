@@ -76,7 +76,7 @@ func (tx *Transaction) Verify(prevTxs map[string]*Transaction) bool {
 		copyIn.Signature = nil
 		copyIn.PubKey = prevTxs[txID].Vout[in.Vout].PubKeyHash
 		copyTx.Hash()
-		copyIn.PubKey = nil
+		copyIn.PubKey = nil  // hash 完就把 public key 制空
 
 		sign := in.Signature
 		sLen := len(sign)
